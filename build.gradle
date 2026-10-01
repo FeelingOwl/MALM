@@ -1,0 +1,98 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.107'
+}
+
+version = mod_version
+group = mod_group
+
+base {
+    archivesName = "${mod_id}-${minecraft_version}"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+}
+
+legacyForge {
+    version = "${minecraft_version}-${forge_version}"
+
+    parchment {
+        minecraftVersion = parchment_minecraft
+        mappingsVersion = parchment_version
+    }
+
+    runs {
+        client {
+            client()
+            // Dumps mixin-transformed classes to run/.mixin.out so injections can be checked with javap.
+            systemProperty 'mixin.debug.export', 'true'
+        }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+mixin {
+    add(sourceSets.main, "${mod_id}.refmap.json")
+    config("${mod_id}.mixins.json")
+}
+
+repositories {
+    flatDir { dirs 'libs' }
+    maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+}
+
+dependencies {
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // Mine and Slash and its hard dependencies. Compiled against Mine and Slash + Library of Exile;
+    // the rest only need to be present so the dev client can start.
+    modImplementation "blank:Mine_and_Slash-1.20.1:${mns_version}"
+    modImplementation "blank:Library_of_Exile-1.20.1:${exile_library_version}"
+    modRuntimeOnly "blank:Dungeon-Realm-1.20.1:${dungeon_realm_version}"
+    modRuntimeOnly "blank:The-Harvest-1.20.1:${the_harvest_version}"
+    modRuntimeOnly "blank:Ancient-Obelisks-1.20.1:${ancient_obelisks_version}"
+    modRuntimeOnly "blank:curios-forge:${curios_version}"
+    modRuntimeOnly "blank:player-animation-lib-forge:${player_animator_version}"
+}
+
+jar {
+    manifest.attributes([
+            'MixinConfigs'          : "${mod_id}.mixins.json",
+            'Implementation-Title'  : mod_name,
+            'Implementation-Version': version,
+            'Implementation-Vendor' : mod_author,
+    ])
+    finalizedBy 'reobfJar'
+}
+
+processResources {
+    def props = [
+            mod_id         : mod_id,
+            mod_name       : mod_name,
+            mod_version    : mod_version,
+            mod_author     : mod_author,
+            mod_description: mod_description,
+            forge_version  : forge_version,
+            mns_version    : mns_version,
+            exile_library_version: exile_library_version,
+            mixin_package  : "${mod_group}.mixin",
+    ]
+    inputs.properties props
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta', '*.mixins.json']) {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

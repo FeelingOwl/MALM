@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "${mixin_package}",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "${mod_id}.refmap.json",
+  "mixins": [
+    "LevelUtilsMixin",
+    "LootInfoMixin",
+    "MobStatUtilsMixin",
+    "OnMobDeathDropsMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

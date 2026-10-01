@@ -1,0 +1,11 @@
+{
+  "targets": ["#minecraft:village"],
+  "dimensions": ["minecraft:overworld"],
+  "biomes": ["minecraft:desert"],
+  "priority": 5,
+  "config": {
+    "min_lvl": 15,
+    "max_lvl": 20,
+    "exp_multi": 1.25
+  }
+}

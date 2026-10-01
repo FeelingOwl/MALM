@@ -1,0 +1,10 @@
+{
+  "targets": ["minecraft:lukewarm_ocean", "minecraft:deep_lukewarm_ocean"],
+  "dimensions": ["minecraft:overworld"],
+  "priority": 0,
+  "config": {
+    "min_lvl": 20,
+    "max_lvl": 35,
+    "exp_multi": 1.5
+  }
+}
