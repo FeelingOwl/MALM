@@ -203,6 +203,25 @@ is needed client side.
 * Server config `serverconfig/malm-server.toml`: `show_area_titles`, `show_title_on_leave`, `level_range_as_subtitle`,
   `check_interval_ticks` (10), `reannounce_cooldown_seconds` (30), and the fade-in/stay/fade-out timings.
 
+## 9c. Random level ranges per structure instance (added 2026-10-01)
+
+These are `config` fields, for structure layers only. Setting `random_range_increments` turns the mode on:
+```json
+"random_range_min": 10, "random_range_max": 45, "random_range_increments": 4
+```
+* Each structure *instance* rolls a window `increments` levels wide whose low end is uniform in `[min, max - increments]`,
+  so the window never crosses min or max. Example: [34-38], read as "area level 36, ±2". If the bounds are narrower
+  than the increments, the window is the whole bounded range.
+* A missing `random_range_min` or `random_range_max` falls back to the resolved `min_lvl` / `max_lvl` chain (this layer, then biome, then
+  dimension), capped at Mine and Slash's `MAX_LEVEL`.
+* The roll is deterministic: seeded from world seed + layer id + structure id + the structure start's chunk. A given
+  monument keeps its range across restarts, and every player sees the same one. Editing the bounds re-rolls everything.
+* Mobs spawned inside get a uniform random level across the window, not Mine and Slash's distance level clamped to an edge. Level lookups
+  without a mob (HUD area level, chest loot) use the centre. This overrides scale-to-nearest-player for that structure.
+  The level-debug tooltip lists it as the `BIOME` source, which is Mine and Slash's only unused one.
+* The secondary level range is disabled inside a rolled window. Mobs remember their instance (`malm:layers.instance`), so exp, loot and
+  stats follow it. Area titles treat each instance as its own area.
+
 ## 10. Decisions (settled 2026-09-30)
 
 1. **Priority**: Structure > Biome > Dimension, and one active layer per position. Multipliers and stats never

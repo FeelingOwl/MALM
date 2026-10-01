@@ -1,11 +1,13 @@
 {
   "targets": ["minecraft:monument"],
+  "dimensions": ["minecraft:overworld"],
   "match": "pieces",
   "priority": 10,
   "display_name": {"text": "Ocean Monument", "color": "aqua"},
   "config": {
-    "min_lvl": 40,
-    "max_lvl": 45,
+    "random_range_min": 10,
+    "random_range_max": 45,
+    "random_range_increments": 4,
     "exp_multi": 2.0,
     "all_drop_multi": 1.5,
     "mob_strength_multi": 1.3

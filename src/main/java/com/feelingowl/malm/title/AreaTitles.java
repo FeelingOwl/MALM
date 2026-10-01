@@ -64,7 +64,9 @@ public final class AreaTitles {
         }
 
         ActiveLayers layers = AreaResolver.find(level, player.blockPosition());
-        String key = level.dimension().location() + "|" + (layers.active() == null ? "" : layers.active().id());
+        // Random-range instances of the same layer have different ranges, so each counts as its own area.
+        String key = level.dimension().location() + "|" + (layers.active() == null ? "" : layers.active().id())
+                + (layers.isRandomRange() ? "|" + layers.instanceSeed() : "");
 
         if (state.current == null) {
             // First check after login: take the current area as the baseline instead of announcing it.

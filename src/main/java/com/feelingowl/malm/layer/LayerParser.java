@@ -31,7 +31,8 @@ public final class LayerParser {
     private static final Set<String> TOP_LEVEL_KEYS = Set.of("targets", "dimensions", "biomes", "priority", "match", "display_name", "announce", "config");
     private static final Set<String> CONFIG_KEYS = Set.of(
             "min_lvl", "max_lvl", "min_lvl_area", "mob_lvl_per_distance", "scale_to_nearest_player",
-            "secondary_lvl_range", "exp_multi", "all_drop_multi", "mob_strength_multi", "stats");
+            "secondary_lvl_range", "exp_multi", "all_drop_multi", "mob_strength_multi", "stats",
+            "random_range_min", "random_range_max", "random_range_increments");
 
     private LayerParser() {
     }
@@ -76,6 +77,13 @@ public final class LayerParser {
         }
 
         LayerSettings settings = json.has("config") ? parseSettings(id, json.getAsJsonObject("config")) : new LayerSettings();
+        if (type != LayerType.STRUCTURE && settings.randomRangeIncrements != null) {
+            // A random window is rolled per structure instance. A biome has no instances to roll for.
+            Malm.LOGGER.warn("[malm] {}: random_range_* only applies to structure layers, ignoring it", id);
+            settings.randomRangeMin = null;
+            settings.randomRangeMax = null;
+            settings.randomRangeIncrements = null;
+        }
 
         if (json.has("display_name")) {
             JsonElement name = json.get("display_name");
@@ -135,6 +143,20 @@ public final class LayerParser {
             if (s.stats.stats == null) {
                 s.stats.stats = new ArrayList<>();
             }
+        }
+
+        if (config.has("random_range_min")) s.randomRangeMin = config.get("random_range_min").getAsInt();
+        if (config.has("random_range_max")) s.randomRangeMax = config.get("random_range_max").getAsInt();
+        if (config.has("random_range_increments")) s.randomRangeIncrements = config.get("random_range_increments").getAsInt();
+
+        if (s.randomRangeIncrements == null && (s.randomRangeMin != null || s.randomRangeMax != null)) {
+            Malm.LOGGER.warn("[malm] {}: random_range_min/max do nothing without config.random_range_increments", id);
+        }
+        if (s.randomRangeIncrements != null && s.randomRangeIncrements < 0) {
+            throw new JsonParseException("config.random_range_increments can't be negative");
+        }
+        if (s.randomRangeMin != null && s.randomRangeMax != null && s.randomRangeMin > s.randomRangeMax) {
+            throw new JsonParseException("config.random_range_min (" + s.randomRangeMin + ") is above config.random_range_max (" + s.randomRangeMax + ")");
         }
 
         if (s.minLvl != null && s.maxLvl != null && s.minLvl > s.maxLvl) {

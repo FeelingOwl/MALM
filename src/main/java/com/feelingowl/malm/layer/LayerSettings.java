@@ -31,6 +31,15 @@ public class LayerSettings {
     @Nullable public Boolean scaleToNearestPlayer;
     @Nullable public MinMax secondaryLvlRange;
 
+    // ---- random range (structure layers only) ----
+    // Each structure instance rolls a window `randomRangeIncrements` levels wide, somewhere inside
+    // [randomRangeMin, randomRangeMax]. Setting the increments turns the mode on. A missing min or max falls back to the
+    // resolved min_lvl / max_lvl chain (this layer, then biome, then dimension).
+
+    @Nullable public Integer randomRangeMin;
+    @Nullable public Integer randomRangeMax;
+    @Nullable public Integer randomRangeIncrements;
+
     public float expMulti = 1F;
     public float allDropMulti = 1F;
     public float mobStrengthMulti = 1F;

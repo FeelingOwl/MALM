@@ -58,9 +58,17 @@ public final class MalmCommand {
         send(src, "§fStructure layer: " + describe(layers.structure()));
         send(src, "§fBiome layer: " + describe(layers.biome()));
         send(src, "§fActive: §a" + (layers.active() == null ? "dimension config (" + config.GUID() + ")" : layers.active().id()));
-        send(src, "§fLevels: §e" + config.min_lvl + "-" + config.max_lvl
-                + " §7(min_lvl_area " + config.min_lvl_area + ", per distance " + config.mob_lvl_per_distance
-                + ", scale to player " + config.scale_to_nearest_player + ")");
+        if (layers.isRandomRange()) {
+            var s = layers.structure().settings();
+            send(src, "§fLevels: §e" + config.min_lvl + "-" + config.max_lvl + " §7(rolled for this "
+                    + "structure instance: " + (s.randomRangeIncrements) + " wide, inside random_range "
+                    + (s.randomRangeMin != null ? s.randomRangeMin : "fallback") + "-"
+                    + (s.randomRangeMax != null ? s.randomRangeMax : "fallback") + "; mobs spread across it)");
+        } else {
+            send(src, "§fLevels: §e" + config.min_lvl + "-" + config.max_lvl
+                    + " §7(min_lvl_area " + config.min_lvl_area + ", per distance " + config.mob_lvl_per_distance
+                    + ", scale to player " + config.scale_to_nearest_player + ")");
+        }
         send(src, "§fMultipliers: §eexp x" + config.exp_multi + ", loot x" + config.all_drop_multi + ", mob strength x" + config.mob_strength_multi
                 + " §7(" + config.stats.stats.size() + " extra stat(s))");
         if (player != null) {

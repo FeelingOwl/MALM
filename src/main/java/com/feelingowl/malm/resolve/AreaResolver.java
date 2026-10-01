@@ -36,8 +36,10 @@ public final class AreaResolver {
     /** Entity persistent-data key holding the layers a mob spawned in. */
     public static final String SPAWN_LAYERS_KEY = Malm.MODID + ":layers";
 
-    private record CacheKey(ResourceLocation dimension, String structure, String biome) {
+    private record CacheKey(ResourceLocation dimension, String structure, String biome, long instance) {
     }
+
+    private static final int MAX_CACHE_SIZE = 4096;
 
     private record CacheEntry(DimensionConfig base, DimensionConfig config) {
     }
@@ -60,7 +62,24 @@ public final class AreaResolver {
         }
         ResourceLocation dim = level.dimension().location();
         Holder<Biome> biome = level.getBiome(pos);
-        return new ActiveLayers(findStructureLayer(level, pos, dim, biome), findBiomeLayer(dim, biome));
+        StructureMatch structure = findStructureLayer(level, pos, dim, biome);
+        AreaLayer biomeLayer = findBiomeLayer(dim, biome);
+        if (structure == null) {
+            return new ActiveLayers(null, biomeLayer, 0L);
+        }
+        return new ActiveLayers(structure.layer(), biomeLayer, instanceSeed(level, structure));
+    }
+
+    private record StructureMatch(AreaLayer layer, ResourceLocation structureId, StructureStart start) {
+    }
+
+    /** Stable per structure instance: same world, layer and structure start always give the same seed. */
+    private static long instanceSeed(ServerLevel level, StructureMatch match) {
+        long seed = level.getSeed();
+        seed = seed * 31 + match.layer().id().hashCode();
+        seed = seed * 31 + match.structureId().hashCode();
+        seed = seed * 31 + match.start().getChunkPos().toLong();
+        return seed == 0 ? 1 : seed; // 0 means "no structure instance"
     }
 
     @Nullable
@@ -74,7 +93,7 @@ public final class AreaResolver {
     }
 
     @Nullable
-    private static AreaLayer findStructureLayer(ServerLevel level, BlockPos pos, ResourceLocation dim, Holder<Biome> biome) {
+    private static StructureMatch findStructureLayer(ServerLevel level, BlockPos pos, ResourceLocation dim, Holder<Biome> biome) {
         List<AreaLayer> layers = LayerRegistry.get(LayerType.STRUCTURE);
         if (layers.isEmpty()) {
             return null;
@@ -97,22 +116,20 @@ public final class AreaResolver {
                 continue;
             }
             for (Map.Entry<Structure, LongSet> ref : refs.entrySet()) {
-                if (ref.getValue().isEmpty() || !layer.targets().matches(registry.wrapAsHolder(ref.getKey()))) {
+                Holder<Structure> holder = registry.wrapAsHolder(ref.getKey());
+                if (ref.getValue().isEmpty() || !layer.targets().matches(holder)) {
                     continue;
                 }
-                if (contains(level, pos, ref.getKey(), layer.match())) {
-                    return layer;
+                StructureStart start = layer.match() == AreaLayer.StructureMatch.PIECES
+                        ? level.structureManager().getStructureWithPieceAt(pos, ref.getKey())
+                        : level.structureManager().getStructureAt(pos, ref.getKey());
+                if (start.isValid()) {
+                    ResourceLocation id = holder.unwrapKey().map(k -> k.location()).orElse(layer.id());
+                    return new StructureMatch(layer, id, start);
                 }
             }
         }
         return null;
-    }
-
-    private static boolean contains(ServerLevel level, BlockPos pos, Structure structure, AreaLayer.StructureMatch match) {
-        StructureStart start = match == AreaLayer.StructureMatch.PIECES
-                ? level.structureManager().getStructureWithPieceAt(pos, structure)
-                : level.structureManager().getStructureAt(pos, structure);
-        return start.isValid();
     }
 
     // ---- building configs ----
@@ -122,10 +139,16 @@ public final class AreaResolver {
         if (layers.isEmpty()) {
             return base;
         }
-        CacheKey key = new CacheKey(level.dimension().location(), idOf(layers.structure()), idOf(layers.biome()));
+        // Only random-range layers differ per structure instance; every other config is shared by all instances.
+        long instance = layers.isRandomRange() ? layers.instanceSeed() : 0L;
+        CacheKey key = new CacheKey(level.dimension().location(), idOf(layers.structure()), idOf(layers.biome()), instance);
         CacheEntry entry = CACHE.get(key);
         // Mine and Slash's own dimension configs reload separately from ours; rebuild if the base changed.
         if (entry == null || entry.base() != base) {
+            if (CACHE.size() > MAX_CACHE_SIZE) {
+                // Random-range entries grow with every structure instance explored. Rebuilding one is cheap.
+                CACHE.clear();
+            }
             entry = new CacheEntry(base, EffectiveConfig.build(base, layers));
             CACHE.put(key, entry);
         }
@@ -158,6 +181,7 @@ public final class AreaResolver {
         CompoundTag tag = new CompoundTag();
         tag.putString("structure", idOf(layers.structure()));
         tag.putString("biome", idOf(layers.biome()));
+        tag.putLong("instance", layers.instanceSeed());
         entity.getPersistentData().put(SPAWN_LAYERS_KEY, tag);
     }
 
@@ -171,7 +195,8 @@ public final class AreaResolver {
         CompoundTag tag = data.getCompound(SPAWN_LAYERS_KEY);
         return new ActiveLayers(
                 LayerRegistry.byId(LayerType.STRUCTURE, tag.getString("structure")),
-                LayerRegistry.byId(LayerType.BIOME, tag.getString("biome")));
+                LayerRegistry.byId(LayerType.BIOME, tag.getString("biome")),
+                tag.getLong("instance"));
     }
 
     private static String idOf(@Nullable AreaLayer layer) {
